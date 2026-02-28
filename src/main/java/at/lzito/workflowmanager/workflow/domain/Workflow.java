@@ -1,4 +1,4 @@
-package at.lzito.workflowmanager.domain;
+package at.lzito.workflowmanager.workflow.domain;
 
 import java.util.Collections;
 import java.util.List;
@@ -52,12 +52,12 @@ public final class Workflow {
 
     // ── Accessors ─────────────────────────────────────────────────────────────
 
-    public String           getName()             { return name; }
-    public String           getIcon()             { return icon; }
-    public Hotkey           getHotkey()           { return hotkey; }
-    public List<AppEntry>   getAppsToOpen()       { return appsToOpen; }
-    public List<String>     getProcessesToClose() { return processesToClose; }
-    public boolean          isCloseOthers()       { return closeOthers; }
+    public String         getName()             { return name; }
+    public String         getIcon()             { return icon; }
+    public Hotkey         getHotkey()           { return hotkey; }
+    public List<AppEntry> getAppsToOpen()       { return appsToOpen; }
+    public List<String>   getProcessesToClose() { return processesToClose; }
+    public boolean        isCloseOthers()       { return closeOthers; }
 
     // ── Identity by name ──────────────────────────────────────────────────────
 

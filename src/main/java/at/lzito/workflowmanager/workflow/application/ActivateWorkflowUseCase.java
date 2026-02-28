@@ -1,9 +1,8 @@
-package at.lzito.workflowmanager.application;
+package at.lzito.workflowmanager.workflow.application;
 
-import at.lzito.workflowmanager.application.port.ProcessLauncherPort;
-import at.lzito.workflowmanager.domain.AppEntry;
-import at.lzito.workflowmanager.domain.Workflow;
-import at.lzito.workflowmanager.domain.WorkflowRepository;
+import at.lzito.workflowmanager.workflow.domain.AppEntry;
+import at.lzito.workflowmanager.workflow.domain.Workflow;
+import at.lzito.workflowmanager.workflow.domain.WorkflowRepository;
 
 import java.util.function.Consumer;
 
@@ -13,14 +12,14 @@ import java.util.function.Consumer;
  */
 public class ActivateWorkflowUseCase {
 
-    private final WorkflowRepository    repository;
-    private final ProcessLauncherPort   launcher;
-    private final Consumer<String>      logger;
+    private final WorkflowRepository repository;
+    private final ProcessLauncher    launcher;
+    private final Consumer<String>   logger;
 
     public ActivateWorkflowUseCase(
-            WorkflowRepository  repository,
-            ProcessLauncherPort launcher,
-            Consumer<String>    logger) {
+            WorkflowRepository repository,
+            ProcessLauncher    launcher,
+            Consumer<String>   logger) {
         this.repository = repository;
         this.launcher   = launcher;
         this.logger     = logger;

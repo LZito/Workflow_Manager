@@ -1,11 +1,11 @@
-package at.lzito.workflowmanager.domain;
+package at.lzito.workflowmanager.workflow.domain;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Output port (repository interface) for persisting and retrieving workflows.
+ * Repository interface for persisting and retrieving workflows.
  * Implementations live in the infrastructure layer.
  */
 public interface WorkflowRepository {

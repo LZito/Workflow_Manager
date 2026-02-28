@@ -1,8 +1,7 @@
-package at.lzito.workflowmanager.application;
+package at.lzito.workflowmanager.workflow.application;
 
-import at.lzito.workflowmanager.application.port.HotkeyRegistryPort;
-import at.lzito.workflowmanager.domain.Workflow;
-import at.lzito.workflowmanager.domain.WorkflowRepository;
+import at.lzito.workflowmanager.workflow.domain.Workflow;
+import at.lzito.workflowmanager.workflow.domain.WorkflowRepository;
 
 import java.io.IOException;
 import java.util.List;
@@ -14,12 +13,12 @@ import java.util.function.Consumer;
 public class ReloadWorkflowsUseCase {
 
     private final WorkflowRepository repository;
-    private final HotkeyRegistryPort hotkeyRegistry;
+    private final HotkeyRegistry     hotkeyRegistry;
     private final Consumer<String>   logger;
 
     public ReloadWorkflowsUseCase(
             WorkflowRepository repository,
-            HotkeyRegistryPort hotkeyRegistry,
+            HotkeyRegistry     hotkeyRegistry,
             Consumer<String>   logger) {
         this.repository     = repository;
         this.hotkeyRegistry = hotkeyRegistry;

@@ -1,15 +1,15 @@
-package at.lzito.workflowmanager.application.port;
+package at.lzito.workflowmanager.workflow.application;
 
-import at.lzito.workflowmanager.domain.Workflow;
+import at.lzito.workflowmanager.workflow.domain.Workflow;
 
 import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Output port for global hotkey registration.
+ * Application-layer interface for global hotkey registration.
  * Implementations live in the infrastructure layer.
  */
-public interface HotkeyRegistryPort {
+public interface HotkeyRegistry {
 
     /** Register the native hook with the OS (call once at startup). */
     void register();

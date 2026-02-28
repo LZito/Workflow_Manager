@@ -1,12 +1,12 @@
 package at.lzito.workflowmanager;
 
 import com.formdev.flatlaf.FlatDarkLaf;
-import at.lzito.workflowmanager.application.ActivateWorkflowUseCase;
-import at.lzito.workflowmanager.application.ReloadWorkflowsUseCase;
-import at.lzito.workflowmanager.infrastructure.hotkey.JNativeHookRegistry;
-import at.lzito.workflowmanager.infrastructure.persistence.JsonWorkflowRepository;
-import at.lzito.workflowmanager.infrastructure.process.OsProcessLauncher;
-import at.lzito.workflowmanager.ui.MainWindow;
+import at.lzito.workflowmanager.workflow.application.ActivateWorkflowUseCase;
+import at.lzito.workflowmanager.workflow.application.ReloadWorkflowsUseCase;
+import at.lzito.workflowmanager.workflow.infrastructure.hotkey.JNativeHookRegistry;
+import at.lzito.workflowmanager.workflow.infrastructure.persistence.JsonWorkflowRepository;
+import at.lzito.workflowmanager.workflow.infrastructure.process.OsProcessLauncher;
+import at.lzito.workflowmanager.workflow.presentation.MainWindow;
 
 import javax.swing.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,9 +26,9 @@ public class App {
         Consumer<String> logger = msg -> logRef.get().accept(msg);
 
         // Infrastructure
-        JsonWorkflowRepository repository     = new JsonWorkflowRepository(logger);
-        OsProcessLauncher      launcher        = new OsProcessLauncher(logger);
-        JNativeHookRegistry    hotkeyRegistry  = new JNativeHookRegistry(logger);
+        JsonWorkflowRepository repository    = new JsonWorkflowRepository(logger);
+        OsProcessLauncher      launcher      = new OsProcessLauncher(logger);
+        JNativeHookRegistry    hotkeyRegistry = new JNativeHookRegistry(logger);
 
         // Application use cases
         ActivateWorkflowUseCase activateUseCase = new ActivateWorkflowUseCase(repository, launcher, logger);

@@ -1,10 +1,10 @@
-package at.lzito.workflowmanager.infrastructure.persistence;
+package at.lzito.workflowmanager.workflow.infrastructure.persistence;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import at.lzito.workflowmanager.domain.AppEntry;
-import at.lzito.workflowmanager.domain.Hotkey;
-import at.lzito.workflowmanager.domain.Workflow;
-import at.lzito.workflowmanager.domain.WorkflowRepository;
+import at.lzito.workflowmanager.workflow.domain.AppEntry;
+import at.lzito.workflowmanager.workflow.domain.Hotkey;
+import at.lzito.workflowmanager.workflow.domain.Workflow;
+import at.lzito.workflowmanager.workflow.domain.WorkflowRepository;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -111,12 +111,12 @@ public class JsonWorkflowRepository implements WorkflowRepository {
     }
 
     private static class WorkflowDto {
-        public String          name;
-        public String          icon;
-        public String          hotkey;
+        public String            name;
+        public String            icon;
+        public String            hotkey;
         public List<AppEntryDto> open;
-        public List<String>    close;
-        public boolean         closeOthers;
+        public List<String>      close;
+        public boolean           closeOthers;
     }
 
     private static class AppEntryDto {

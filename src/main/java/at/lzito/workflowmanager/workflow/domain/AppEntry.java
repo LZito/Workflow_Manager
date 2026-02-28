@@ -1,7 +1,8 @@
-package at.lzito.workflowmanager.domain;
+package at.lzito.workflowmanager.workflow.domain;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /** Value Object: an application or URL to open as part of a workflow. */
 public final class AppEntry {
@@ -25,28 +26,28 @@ public final class AppEntry {
         return url != null && !url.isBlank();
     }
 
-    public String getName()      { return name; }
-    public String getPath()      { return path; }
-    public String getUrl()       { return url; }
+    public String getName()       { return name; }
+    public String getPath()       { return path; }
+    public String getUrl()        { return url; }
     public List<String> getArgs() { return args; }
-    public int getDelayMs()      { return delayMs; }
+    public int getDelayMs()       { return delayMs; }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof AppEntry other)) return false;
-        return java.util.Objects.equals(name, other.name)
-            && java.util.Objects.equals(path, other.path)
-            && java.util.Objects.equals(url,  other.url);
+        return Objects.equals(name, other.name)
+            && Objects.equals(path, other.path)
+            && Objects.equals(url,  other.url);
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(name, path, url);
+        return Objects.hash(name, path, url);
     }
 
     @Override
     public String toString() {
-        return "AppEntry{name='" + name + "', url=" + (isUrl() ? url : path) + "}";
+        return "AppEntry{name='" + name + "', target=" + (isUrl() ? url : path) + "}";
     }
 }

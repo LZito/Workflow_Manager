@@ -1,12 +1,12 @@
-package at.lzito.workflowmanager.application.port;
+package at.lzito.workflowmanager.workflow.application;
 
-import at.lzito.workflowmanager.domain.AppEntry;
+import at.lzito.workflowmanager.workflow.domain.AppEntry;
 
 /**
- * Output port for launching and terminating OS processes.
+ * Application-layer interface for launching and terminating OS processes.
  * Implementations live in the infrastructure layer.
  */
-public interface ProcessLauncherPort {
+public interface ProcessLauncher {
 
     /** Launch the given entry (application or URL). */
     void launch(AppEntry entry);

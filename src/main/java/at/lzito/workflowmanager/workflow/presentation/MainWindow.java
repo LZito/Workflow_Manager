@@ -1,8 +1,8 @@
-package at.lzito.workflowmanager.ui;
+package at.lzito.workflowmanager.workflow.presentation;
 
-import at.lzito.workflowmanager.application.ActivateWorkflowUseCase;
-import at.lzito.workflowmanager.application.ReloadWorkflowsUseCase;
-import at.lzito.workflowmanager.domain.Workflow;
+import at.lzito.workflowmanager.workflow.application.ActivateWorkflowUseCase;
+import at.lzito.workflowmanager.workflow.application.ReloadWorkflowsUseCase;
+import at.lzito.workflowmanager.workflow.domain.Workflow;
 
 import javax.swing.*;
 import java.awt.*;
@@ -21,8 +21,8 @@ public class MainWindow extends JFrame {
     private final ActivateWorkflowUseCase activateUseCase;
     private final ReloadWorkflowsUseCase  reloadUseCase;
 
-    private final JPanel   workflowPanel = new JPanel();
-    private final JTextArea logArea      = new JTextArea();
+    private final JPanel    workflowPanel = new JPanel();
+    private final JTextArea logArea       = new JTextArea();
 
     public MainWindow(ActivateWorkflowUseCase activateUseCase, ReloadWorkflowsUseCase reloadUseCase) {
         this.activateUseCase = activateUseCase;
@@ -57,16 +57,13 @@ public class MainWindow extends JFrame {
     private void buildLayout() {
         setLayout(new BorderLayout(8, 8));
 
-        // Workflow buttons (top)
         workflowPanel.setLayout(new FlowLayout(FlowLayout.LEFT, 8, 8));
         add(new JScrollPane(workflowPanel), BorderLayout.NORTH);
 
-        // Log area (centre)
         logArea.setEditable(false);
         logArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         add(new JScrollPane(logArea), BorderLayout.CENTER);
 
-        // Toolbar (bottom)
         JButton reloadBtn = new JButton("Reload Config");
         reloadBtn.addActionListener(e -> reload());
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -80,7 +77,7 @@ public class MainWindow extends JFrame {
         var iconUrl = getClass().getResource("/icon.png");
         Image icon  = iconUrl != null
                 ? Toolkit.getDefaultToolkit().createImage(iconUrl)
-                : new BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                : new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
 
         TrayIcon trayIcon = new TrayIcon(icon, "Workflow Manager");
         trayIcon.setImageAutoSize(true);

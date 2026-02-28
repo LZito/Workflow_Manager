@@ -1,4 +1,4 @@
-package at.lzito.workflowmanager.domain;
+package at.lzito.workflowmanager.workflow.domain;
 
 import java.util.Objects;
 

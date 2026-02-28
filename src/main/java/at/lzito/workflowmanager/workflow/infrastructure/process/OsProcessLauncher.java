@@ -1,7 +1,7 @@
-package at.lzito.workflowmanager.infrastructure.process;
+package at.lzito.workflowmanager.workflow.infrastructure.process;
 
-import at.lzito.workflowmanager.application.port.ProcessLauncherPort;
-import at.lzito.workflowmanager.domain.AppEntry;
+import at.lzito.workflowmanager.workflow.application.ProcessLauncher;
+import at.lzito.workflowmanager.workflow.domain.AppEntry;
 
 import java.awt.Desktop;
 import java.io.IOException;
@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * ProcessLauncherPort implementation that spawns real OS processes and opens URLs.
+ * ProcessLauncher implementation that spawns real OS processes and opens URLs.
  */
-public class OsProcessLauncher implements ProcessLauncherPort {
+public class OsProcessLauncher implements ProcessLauncher {
 
     private final Consumer<String> logger;
 
@@ -33,12 +33,9 @@ public class OsProcessLauncher implements ProcessLauncherPort {
     @Override
     public void kill(String processName) {
         try {
-            ProcessBuilder pb;
-            if (isWindows()) {
-                pb = new ProcessBuilder("taskkill", "/F", "/IM", processName);
-            } else {
-                pb = new ProcessBuilder("pkill", "-f", processName);
-            }
+            ProcessBuilder pb = isWindows()
+                    ? new ProcessBuilder("taskkill", "/F", "/IM", processName)
+                    : new ProcessBuilder("pkill", "-f", processName);
             pb.start();
             logger.accept("Killed: " + processName);
         } catch (IOException e) {

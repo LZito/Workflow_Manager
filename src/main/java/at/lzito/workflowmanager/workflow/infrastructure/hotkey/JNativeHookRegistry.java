@@ -1,12 +1,12 @@
-package at.lzito.workflowmanager.infrastructure.hotkey;
+package at.lzito.workflowmanager.workflow.infrastructure.hotkey;
 
 import com.github.kwhat.jnativehook.GlobalScreen;
 import com.github.kwhat.jnativehook.NativeHookException;
+import com.github.kwhat.jnativehook.NativeInputEvent;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
-import com.github.kwhat.jnativehook.NativeInputEvent;
-import at.lzito.workflowmanager.application.port.HotkeyRegistryPort;
-import at.lzito.workflowmanager.domain.Workflow;
+import at.lzito.workflowmanager.workflow.application.HotkeyRegistry;
+import at.lzito.workflowmanager.workflow.domain.Workflow;
 
 import java.util.HashMap;
 import java.util.List;
@@ -16,14 +16,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * HotkeyRegistryPort implementation backed by JNativeHook.
+ * HotkeyRegistry implementation backed by JNativeHook.
  *
  * <p>Hotkey format: modifier keys joined with {@code +} followed by the key name,
  * all lowercase — e.g. {@code "ctrl+alt+1"}, {@code "ctrl+shift+f5"}.
  *
  * <p>Modifier ordering in the combo string: ctrl → alt → shift → meta.
  */
-public class JNativeHookRegistry implements HotkeyRegistryPort, NativeKeyListener {
+public class JNativeHookRegistry implements HotkeyRegistry, NativeKeyListener {
 
     private final Consumer<String>      logger;
     private final Map<String, Workflow> bindings  = new HashMap<>();
@@ -36,7 +36,7 @@ public class JNativeHookRegistry implements HotkeyRegistryPort, NativeKeyListene
               .setLevel(Level.WARNING);
     }
 
-    // ── HotkeyRegistryPort ────────────────────────────────────────────────────
+    // ── HotkeyRegistry ────────────────────────────────────────────────────────
 
     @Override
     public void register() {
@@ -102,10 +102,18 @@ public class JNativeHookRegistry implements HotkeyRegistryPort, NativeKeyListene
         int mods = e.getModifiers();
         StringBuilder sb = new StringBuilder();
 
-        if ((mods & NativeInputEvent.CTRL_MASK) != 0)  sb.append("ctrl+");
-        if ((mods & NativeInputEvent.ALT_MASK) != 0)   sb.append("alt+");
-        if ((mods & NativeInputEvent.SHIFT_MASK) != 0) sb.append("shift+");
-        if ((mods & NativeInputEvent.META_MASK) != 0)  sb.append("meta+");
+        if ((mods & NativeInputEvent.CTRL_MASK) != 0) {
+            sb.append("ctrl+");
+        }
+        if ((mods & NativeInputEvent.ALT_MASK) != 0) {
+            sb.append("alt+");
+        }
+        if ((mods & NativeInputEvent.SHIFT_MASK) != 0) {
+            sb.append("shift+");
+        }
+        if ((mods & NativeInputEvent.META_MASK) != 0) {
+            sb.append("meta+");
+        }
 
         sb.append(NativeKeyEvent.getKeyText(e.getKeyCode()).toLowerCase());
         return sb.toString();
