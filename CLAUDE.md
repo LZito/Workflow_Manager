@@ -50,17 +50,17 @@ at.lzito.workflowmanager/
 │   │   └── WorkflowRepository.java               ← output port (interface)
 │   ├── application/
 │   │   ├── WorkflowAppService.java               ← single app service (not separate use cases)
-│   │   ├── HotkeyRegistry.java                   ← output port (interface) — lives here, NOT in port/
-│   │   └── ProcessLauncher.java                  ← output port (interface) — lives here, NOT in port/
+│   │   ├── HotkeyRegistry.java                   ← output port (interface)
+│   │   └── ProcessLauncher.java                  ← output port (interface)
 │   ├── infrastructure/
 │   │   ├── persistence/JsonWorkflowRepository.java  ← Jackson impl; private inner DTOs
-│   │   ├── process/OsProcessLauncher.java           ← ProcessLauncher impl
+│   │   ├── process/OsProcessLauncher.java           ← taskkill (Win) / pkill (Unix)
 │   │   └── hotkey/JNativeHookRegistry.java          ← HotkeyRegistry + NativeKeyListener
 │   └── presentation/
-│       ├── MainWindow.java                       ← JFrame (not ui/, not MainWindow in root)
-│       ├── ConfigEditorDialog.java
-│       ├── AppEntryEditorDialog.java
-│       └── InstalledAppPickerDialog.java
+│       ├── MainWindow.java                       ← JFrame; WrapLayout for buttons
+│       ├── ConfigEditorDialog.java               ← full CRUD editor for workflows
+│       ├── AppEntryEditorDialog.java             ← modal for a single app/URL entry
+│       └── InstalledAppPickerDialog.java         ← file picker for installed executables
 │
 └── updater/                                      ← bounded context: self-update
     ├── domain/
@@ -69,13 +69,12 @@ at.lzito.workflowmanager/
     │   ├── ReleaseRepository.java                ← output port (interface)
     │   └── CheckForUpdateUseCase.java            ← returns Optional<Release> if newer
     └── infrastructure/
-        ├── GitHubReleaseRepository.java          ← GitHub API impl
-        └── JarSelfUpdater.java                   ← downloads + replaces running JAR
+        ├── GitHubReleaseRepository.java          ← GitHub Releases API; all errors → empty
+        └── JarSelfUpdater.java                   ← downloads JAR; PowerShell/sh swap script
 ```
 
-> **Note:** The original design doc used `ui/` and `application/port/` — the actual code uses
-> `presentation/` and ports live directly in `application/`. `WorkflowAppService` is a single
-> coordinating service, not split into separate use case classes.
+> **Note:** Port interfaces live directly in `application/`, not in a `port/` sub-package.
+> `WorkflowAppService` is a single coordinating service, not split into separate use-case classes.
 
 ---
 
@@ -84,38 +83,79 @@ at.lzito.workflowmanager/
 ```bash
 gradle compileJava       # compile only (fastest feedback)
 gradle test              # run unit tests (61 tests across 7 classes)
-gradle shadowJar         # fat JAR → /tmp/wm-build/libs/workflow-manager.jar
+gradle shadowJar         # fat JAR → /tmp/wm-build/libs/workflow-manager.jar  (WSL)
+                         #           build/libs/workflow-manager.jar           (Windows CI)
 gradle build             # compile + test + fat JAR
-gradle installGitHooks   # one-time setup: point Git at .githooks/ (run after cloning)
+gradle installGitHooks   # one-time setup after cloning: points Git at .githooks/
 ```
 
 > **WSL / NTFS:** `gradlew` is not executable on NTFS — use `gradle` directly from WSL.
-> Build output is redirected to `/tmp/wm-build/` on Linux (see `build.gradle.kts`).
-> The final JAR is always at `/tmp/wm-build/libs/workflow-manager.jar`.
+> Build output is redirected to `/tmp/wm-build/` on Linux (configured in `build.gradle.kts`).
+
+---
+
+## Key configuration files
+
+### `gradle.properties`
+
+```properties
+systemProp.org.gradle.native=false   # disables Gradle's native POSIX layer (required on WSL/NTFS)
+projectVersion=1.0.7                 # updated automatically by gradle release
+```
+
+### `src/main/resources/app.properties`
+
+```properties
+github.owner=LZito          # GitHub username; leave blank to disable the auto-update check
+github.repo=Workflow_Manager
+```
+
+Read by `App.java` at startup to configure `GitHubReleaseRepository`. If `github.owner`
+is blank, `findLatest()` returns `Optional.empty()` immediately without any network call.
 
 ---
 
 ## Git hooks
 
-The pre-push hook at `.githooks/pre-push` runs `gradle test` before every push.
-Git does **not** pick up `.githooks/` automatically — `core.hooksPath` must be configured.
+`.githooks/pre-push` runs `gradle test` before every push. Activate once after cloning:
 
 ```bash
-gradle installGitHooks   # sets core.hooksPath=.githooks (run once after cloning)
+gradle installGitHooks   # sets core.hooksPath=.githooks
 ```
 
-The `release` task calls `git push` internally via `ProcessBuilder`, so the hook fires
-automatically during a release — tests must pass before any release commit goes out.
-To bypass in a genuine emergency: `git push --no-verify` (not recommended).
+The `release` task calls `git push` via `ProcessBuilder`, so the hook fires automatically
+during a release — tests must pass before any release commit goes out.
 
 ### WSL/NTFS gotchas for hook files
 
-- **Never edit `.githooks/` scripts with a Windows editor or the Write tool** — they silently
-  add CRLF line endings. Linux `exec()` reads the shebang as `#!/bin/sh\r`, looks for an
+- **Never edit `.githooks/` scripts with a Windows editor or the Write tool** — they add
+  CRLF line endings. Linux `exec()` reads the shebang as `#!/bin/sh\r`, looks for an
   interpreter named `/bin/sh` + carriage-return, and fails with `No such file or directory`.
-- Always write hook scripts from WSL using a heredoc: `cat > .githooks/pre-push << 'EOF'`
+- Always write hook scripts from WSL using a heredoc: `cat > .githooks/hook << 'EOF'`
 - `git config core.hooksPath` also fails on NTFS (can't chmod the lock file). The
-  `installGitHooks` task handles this with a direct `.git/config` file edit as a fallback.
+  `installGitHooks` task handles this by writing `.git/config` directly as a fallback.
+
+---
+
+## App startup sequence (`App.java`)
+
+```
+1. FlatDarkLaf.setup()
+2. Build shared logger (AtomicReference, starts as System.out::println)
+3. Construct infrastructure: JsonWorkflowRepository, OsProcessLauncher, JNativeHookRegistry
+4. Construct WorkflowAppService
+5. Detect firstRun = !Files.exists(repository.configPath())   ← BEFORE reload
+6. hotkeyRegistry.register()  +  shutdown hook for unregister
+7. Construct GitHubReleaseRepository + CheckForUpdateUseCase
+8. SwingUtilities.invokeLater:
+   a. new MainWindow(workflowAppService, firstRun)   ← triggers reload internally
+   b. logRef rewired to window::log
+   c. Daemon thread: sleep 4 s → checkForUpdate.execute() → window.promptUpdate(...)
+      All exceptions silently swallowed — network failures must not affect the app
+```
+
+`firstRun=true` causes `MainWindow` to open `ConfigEditorDialog` immediately after
+initialization, guiding new users to add their first workflow.
 
 ---
 
@@ -146,35 +186,28 @@ src/test/java/at/lzito/workflowmanager/
 | Scenario | Pattern |
 |---|---|
 | Domain value objects | Plain JUnit 5, no mocks needed |
-| Application service / use case | Mockito — mock all ports and the repository |
+| Application service / use case | Mockito — mock all port interfaces |
 | Infrastructure (file I/O) | `@TempDir` — never touch `~/.workflow-manager/` in tests |
 | EDT / Swing | Not tested; keep presentation logic minimal |
 
-**`JsonWorkflowRepository` test constructor:** The class exposes a package-private
-constructor `JsonWorkflowRepository(Path configFile, Consumer<String> logger)` that
-accepts an explicit file path — use this with `@TempDir` for full isolation.
+**`JsonWorkflowRepository` test constructor:** package-private constructor accepts an
+explicit `Path configFile` — use with `@TempDir` for full isolation:
 
 ```java
 @TempDir Path tempDir;
-
-JsonWorkflowRepository repo = new JsonWorkflowRepository(
-        tempDir.resolve("workflows.json"), msg -> {});
+var repo = new JsonWorkflowRepository(tempDir.resolve("workflows.json"), msg -> {});
 ```
-
-**Mockito tip:** `WorkflowAppService` and `CheckForUpdateUseCase` take all their
-dependencies as constructor-injected interfaces — mock them directly, no spy needed.
 
 ---
 
 ## Adding a new feature
 
-1. **Define the capability** in `domain/` (if it's a new concept) or add a port interface
-   in `application/` (if it's a new output boundary, e.g. notifications).
+1. **Define the capability** in `domain/` (new concept) or add a port interface in
+   `application/` (new output boundary, e.g. notifications).
 2. **Implement the port** in `infrastructure/` using the concrete library.
-3. **Wire it up** in `App.java` (composition root) only — pass the implementation via
-   constructor injection to `WorkflowAppService` or the relevant use case.
-4. **Expose it to the UI** through `WorkflowAppService` or a new use case; the
-   `presentation/` layer must never import an `infrastructure/` class.
+3. **Wire it up** in `App.java` only — pass the implementation via constructor injection.
+4. **Expose it to the UI** through `WorkflowAppService` or a new use case; `presentation/`
+   must never import an `infrastructure/` class.
 
 ---
 
@@ -201,10 +234,12 @@ they match the normalised keys stored by `Hotkey.of()`.
 | Composition root | `App.java` only — no business logic, just wiring |
 | Jackson DTOs | Private inner classes in `JsonWorkflowRepository`; never escape to domain |
 | EDT safety | Swing calls via `SwingUtilities.invokeLater`; activation on background thread |
-| Logger | `Consumer<String>` passed via constructor; `App.java` starts with `System.out::println`, rewires to `window::log` after window creation via `AtomicReference` |
-| Hotkey callback | Fired on JNativeHook thread → dispatched to a new background thread |
+| Logger | `Consumer<String>` passed via constructor; `App.java` uses `AtomicReference` to rewire it from `System.out::println` to `window::log` after the window is created |
+| Hotkey callback | `MainWindow.onHotkeyActivated()` dispatches to a new background thread; also shows a `TrayIcon` notification |
+| `closeOthers` semantics | `false` → kill only this workflow's own `close` list; `true` → kill every *other* workflow's `close` list (this workflow's own `close` list is ignored) |
 | Immutability | `Workflow`, `AppEntry`, `Hotkey` — final fields, `Collections.unmodifiableList` copies |
-| `WorkflowRepository` | `findAll()`, `reload()`, `save(List<Workflow>)`, `reset()`, `configPath()` |
+| `WorkflowRepository` contract | `findAll()`, `reload()`, `save(List<Workflow>)`, `reset()`, `configPath()` |
+| Update check resilience | `GitHubReleaseRepository.findLatest()` catches all exceptions → `Optional.empty()`; a broken network must never affect the rest of the app |
 
 ---
 
@@ -212,8 +247,8 @@ they match the normalised keys stored by `Hotkey.of()`.
 
 | Problem | Cause | Fix |
 |---|---|---|
-| `gradlew` not executable | NTFS has no execute bit | Use `gradle <task>` directly |
-| `shadowJar` / `processResources` chmod errors | Gradle writes to NTFS | Build dir redirected to `/tmp/wm-build` |
-| `git config` fails (exit 4) | Can't chmod `.git/config.lock` | Edit `.git/config` directly or use `gradle installGitHooks` |
-| Hook runs but `No such file or directory` | Script has CRLF endings | Rewrite with `cat > file << 'EOF'` from WSL |
+| `gradlew` not executable | NTFS has no Unix execute bit | Use `gradle <task>` directly from WSL |
+| `shadowJar` / `processResources` chmod errors | Gradle writes to NTFS | Build dir redirected to `/tmp/wm-build` in `build.gradle.kts` |
+| `git config` fails (exit 4) | Can't chmod `.git/config.lock` on NTFS | Use `gradle installGitHooks` (has `.git/config` direct-edit fallback) |
+| Hook: `No such file or directory` | Shell script has CRLF endings — shebang becomes `#!/bin/sh\r` | Rewrite with `cat > file << 'EOF'` from WSL |
 | `git push` shows chmod warning | Non-fatal NTFS noise | Safe to ignore — push still succeeds |
