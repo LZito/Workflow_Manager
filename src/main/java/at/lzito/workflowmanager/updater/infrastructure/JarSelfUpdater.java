@@ -5,9 +5,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Base64;
 
 /**
  * Downloads a new release JAR and hot-swaps it after the current process exits.
@@ -60,28 +62,25 @@ public class JarSelfUpdater {
     // ── Platform scripts ──────────────────────────────────────────────────────
 
     private static void launchWindowsUpdater(Path target, Path update) throws IOException {
-        Path script = target.resolveSibling("wm-update.bat");
-
-        // In a jpackage app-image the JAR lives inside an app/ subfolder and the
-        // native launcher sits one directory above it.  Prefer that launcher so the
-        // bundled JRE is used instead of whatever javaw might be on PATH.
+        // In a jpackage app-image the launcher .exe sits one level above the app/ folder.
+        // Prefer it so the bundled JRE is used instead of whatever javaw is on PATH.
         Path nativeLauncher = target.getParent().getParent().resolve("WorkflowManager.exe");
         String relaunch = Files.exists(nativeLauncher)
-                ? "start \"\" \"" + nativeLauncher.toAbsolutePath() + "\""
-                : "start javaw -jar \"" + target.toAbsolutePath() + "\"";
+                ? "Start-Process \"" + nativeLauncher.toAbsolutePath() + "\""
+                : "Start-Process javaw -ArgumentList \"-jar `\"" + target.toAbsolutePath() + "`\"\"";
 
-        // timeout /t 3 waits 3 s without requiring network (unlike ping)
-        // "> nul"  suppresses the "1 file(s) moved." message
-        // "(goto) 2>nul & del" is the standard self-delete idiom: CMD releases the
-        // file before deleting it, avoiding the "batch file cannot be found" error
-        String bat =
-            "@echo off\r\n" +
-            "timeout /t 3 /nobreak > nul\r\n" +
-            "move /y \"" + update.toAbsolutePath() + "\" \"" + target.toAbsolutePath() + "\" > nul\r\n" +
-            relaunch + "\r\n" +
-            "(goto) 2>nul & del \"%~f0\"\r\n";
-        Files.writeString(script, bat);
-        new ProcessBuilder("cmd.exe", "/c", "start", "/min", script.toString()).start();
+        // Run a hidden PowerShell command — no bat file, no visible window, no self-deletion.
+        // -EncodedCommand (Base64 UTF-16LE) avoids all quoting and escaping issues.
+        String ps =
+            "Start-Sleep -Seconds 3\n" +
+            "Move-Item -Force \"" + update.toAbsolutePath() + "\" \"" + target.toAbsolutePath() + "\"\n" +
+            relaunch + "\n";
+
+        String encoded = Base64.getEncoder().encodeToString(ps.getBytes(StandardCharsets.UTF_16LE));
+        new ProcessBuilder(
+                "powershell.exe", "-NoProfile", "-NonInteractive",
+                "-WindowStyle", "Hidden", "-EncodedCommand", encoded)
+                .start();
     }
 
     private static void launchUnixUpdater(Path target, Path update) throws IOException {
