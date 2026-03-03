@@ -1,4 +1,5 @@
 import java.io.ByteArrayOutputStream
+import java.util.Properties
 
 plugins {
     java
@@ -6,8 +7,32 @@ plugins {
     id("com.gradleup.shadow") version "8.3.6"
 }
 
-group   = "at.lzito.workflowmanager"
-version = findProperty("projectVersion") as String? ?: "0.0.0"
+group = "at.lzito.workflowmanager"
+
+// ── Version resolution ────────────────────────────────────────────────────────
+// Read the stored version from gradle.properties directly so we can distinguish
+// an explicit -PprojectVersion=x.y.z override from the file-sourced default.
+// • gradle release                    → auto-increments patch (1.0.6 → 1.0.7)
+// • gradle release -PprojectVersion=2.0.0 → uses 2.0.0 exactly
+// • gradle shadowJar / compileJava    → uses the stored version as-is
+run {
+    val propsFile = file("gradle.properties")
+    val fileProps = Properties().also { props -> props.load(propsFile.reader()) }
+    val stored   = fileProps.getProperty("projectVersion", "0.0.0")
+    val explicit = gradle.startParameter.projectProperties["projectVersion"]
+    val isRelease = gradle.startParameter.taskNames
+        .any { it == "release" || it.endsWith(":release") }
+
+    version = when {
+        explicit != null -> explicit
+        isRelease -> {
+            val parts = stored.split(".")
+            if (parts.size == 3) "${parts[0]}.${parts[1]}.${parts[2].toInt() + 1}"
+            else stored
+        }
+        else -> stored
+    }
+}
 
 // On Linux/WSL, redirect build output to the Linux filesystem to avoid NTFS chmod failures.
 // On native Windows (GitHub Actions CI) the default build/ directory is used.
@@ -74,7 +99,7 @@ tasks.build {
 // ─────────────────────────────────────────────────────────────────────────────
 tasks.register("release") {
     group       = "publishing"
-    description = "Build, tag, and publish a new release. Usage: gradle release -PprojectVersion=x.y.z"
+    description = "Build, tag, and publish a new release. Patch auto-increments unless -PprojectVersion=x.y.z is given."
 
     dependsOn(tasks.named("shadowJar"))
 
