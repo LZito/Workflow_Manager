@@ -71,12 +71,15 @@ public class JarSelfUpdater {
                 : "start javaw -jar \"" + target.toAbsolutePath() + "\"";
 
         // timeout /t 3 waits 3 s without requiring network (unlike ping)
+        // "> nul"  suppresses the "1 file(s) moved." message
+        // "(goto) 2>nul & del" is the standard self-delete idiom: CMD releases the
+        // file before deleting it, avoiding the "batch file cannot be found" error
         String bat =
             "@echo off\r\n" +
             "timeout /t 3 /nobreak > nul\r\n" +
-            "move /y \"" + update.toAbsolutePath() + "\" \"" + target.toAbsolutePath() + "\"\r\n" +
+            "move /y \"" + update.toAbsolutePath() + "\" \"" + target.toAbsolutePath() + "\" > nul\r\n" +
             relaunch + "\r\n" +
-            "del \"%~f0\"\r\n";
+            "(goto) 2>nul & del \"%~f0\"\r\n";
         Files.writeString(script, bat);
         new ProcessBuilder("cmd.exe", "/c", "start", "/min", script.toString()).start();
     }
