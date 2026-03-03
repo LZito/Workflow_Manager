@@ -2,7 +2,9 @@ package at.lzito.workflowmanager.workflow.presentation;
 
 import at.lzito.workflowmanager.workflow.application.ActivateWorkflowUseCase;
 import at.lzito.workflowmanager.workflow.application.ReloadWorkflowsUseCase;
+import at.lzito.workflowmanager.workflow.application.SaveWorkflowsUseCase;
 import at.lzito.workflowmanager.workflow.domain.Workflow;
+import at.lzito.workflowmanager.workflow.domain.WorkflowRepository;
 
 import javax.swing.*;
 import java.awt.*;
@@ -13,20 +15,31 @@ import java.util.List;
 /**
  * Main application window.
  *
- * <p>Depends only on application-layer use cases — zero direct infrastructure imports.
- * All workflow activation runs on a background thread so the EDT is never blocked.
+ * <p>Depends only on application-layer use cases and domain interfaces — zero direct
+ * infrastructure imports. All workflow activation runs on a background thread so the
+ * EDT is never blocked.
  */
 public class MainWindow extends JFrame {
 
     private final ActivateWorkflowUseCase activateUseCase;
     private final ReloadWorkflowsUseCase  reloadUseCase;
+    private final SaveWorkflowsUseCase    saveUseCase;
+    private final WorkflowRepository      repository;
+    private final boolean                 firstRun;
 
     private final JPanel    workflowPanel = new JPanel();
     private final JTextArea logArea       = new JTextArea();
 
-    public MainWindow(ActivateWorkflowUseCase activateUseCase, ReloadWorkflowsUseCase reloadUseCase) {
+    public MainWindow(ActivateWorkflowUseCase activateUseCase,
+                      ReloadWorkflowsUseCase  reloadUseCase,
+                      SaveWorkflowsUseCase    saveUseCase,
+                      WorkflowRepository      repository,
+                      boolean                 firstRun) {
         this.activateUseCase = activateUseCase;
         this.reloadUseCase   = reloadUseCase;
+        this.saveUseCase     = saveUseCase;
+        this.repository      = repository;
+        this.firstRun        = firstRun;
         initialize();
     }
 
@@ -40,11 +53,22 @@ public class MainWindow extends JFrame {
         });
     }
 
+    /** Opens the config editor dialog (modal). */
+    public void openConfigEditor() {
+        ConfigEditorDialog dlg = new ConfigEditorDialog(this, saveUseCase, repository, this::reload);
+        dlg.setVisible(true);
+    }
+
     // ── Setup ─────────────────────────────────────────────────────────────────
 
     private void initialize() {
         setTitle("Workflow Manager");
-        setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override public void windowClosing(java.awt.event.WindowEvent e) {
+                onCloseRequested();
+            }
+        });
         setSize(640, 420);
         setLocationRelativeTo(null);
 
@@ -52,6 +76,8 @@ public class MainWindow extends JFrame {
         setupTray();
         reload();
         setVisible(true);
+
+        if (firstRun) openConfigEditor();
     }
 
     private void buildLayout() {
@@ -64,9 +90,13 @@ public class MainWindow extends JFrame {
         logArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         add(new JScrollPane(logArea), BorderLayout.CENTER);
 
+        JButton editConfigBtn = new JButton("Edit Config");
+        editConfigBtn.addActionListener(e -> openConfigEditor());
         JButton reloadBtn = new JButton("Reload Config");
         reloadBtn.addActionListener(e -> reload());
+
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        toolbar.add(editConfigBtn);
         toolbar.add(reloadBtn);
         add(toolbar, BorderLayout.SOUTH);
     }
@@ -100,7 +130,22 @@ public class MainWindow extends JFrame {
 
     // ── Actions ───────────────────────────────────────────────────────────────
 
-    private void reload() {
+    private void onCloseRequested() {
+        int choice = JOptionPane.showConfirmDialog(
+                this,
+                "Keep Workflow Manager running in the background?",
+                "Close",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+        if (choice == JOptionPane.YES_OPTION) {
+            setVisible(false);   // hide to tray, process stays alive
+        } else if (choice == JOptionPane.NO_OPTION) {
+            System.exit(0);
+        }
+        // ESC / dialog-X → do nothing (window stays open)
+    }
+
+    void reload() {
         new Thread(() -> {
             try {
                 List<Workflow> workflows = reloadUseCase.execute(this::onHotkeyActivated);

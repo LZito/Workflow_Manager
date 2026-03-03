@@ -9,6 +9,7 @@ import at.lzito.workflowmanager.workflow.domain.WorkflowRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
@@ -70,6 +71,23 @@ public class JsonWorkflowRepository implements WorkflowRepository {
     }
 
     @Override
+    public void save(List<Workflow> workflows) throws IOException {
+        Files.createDirectories(CONFIG_DIR);
+        ConfigDto dto = new ConfigDto();
+        dto.workflows = workflows.stream().map(this::toDto).collect(Collectors.toList());
+        mapper.writerWithDefaultPrettyPrinter().writeValue(CONFIG_FILE.toFile(), dto);
+        cache = Collections.unmodifiableList(new ArrayList<>(workflows));
+        logger.accept("Config saved: " + workflows.size() + " workflow(s) → " + CONFIG_FILE);
+    }
+
+    @Override
+    public void reset() throws IOException {
+        Files.deleteIfExists(CONFIG_FILE);
+        cache = Collections.emptyList();
+        logger.accept("Config reset.");
+    }
+
+    @Override
     public Path configPath() {
         return CONFIG_FILE;
     }
@@ -102,6 +120,27 @@ public class JsonWorkflowRepository implements WorkflowRepository {
 
     private AppEntry toAppEntry(AppEntryDto dto) {
         return new AppEntry(dto.name, dto.path, dto.url, dto.args, dto.delayMs);
+    }
+
+    private WorkflowDto toDto(Workflow w) {
+        WorkflowDto dto = new WorkflowDto();
+        dto.name        = w.getName();
+        dto.icon        = w.getIcon();
+        dto.hotkey      = w.hasHotkey() ? w.getHotkey().getRaw() : null;
+        dto.open        = w.getAppsToOpen().stream().map(this::toAppEntryDto).collect(Collectors.toList());
+        dto.close       = new ArrayList<>(w.getProcessesToClose());
+        dto.closeOthers = w.isCloseOthers();
+        return dto;
+    }
+
+    private AppEntryDto toAppEntryDto(AppEntry e) {
+        AppEntryDto dto = new AppEntryDto();
+        dto.name    = e.getName();
+        dto.path    = e.getPath();
+        dto.url     = e.getUrl();
+        dto.args    = new ArrayList<>(e.getArgs());
+        dto.delayMs = e.getDelayMs();
+        return dto;
     }
 
     // ── Private DTOs (Jackson-only, never exposed outside this class) ─────────
