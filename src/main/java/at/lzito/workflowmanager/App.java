@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 
 /**
  * Composition root — wires up the dependency graph and starts the application.
- * No business logic lives here.
+ * No business logic lives here. (v1.0.2 — updater smoke test)
  */
 public class App {
 
