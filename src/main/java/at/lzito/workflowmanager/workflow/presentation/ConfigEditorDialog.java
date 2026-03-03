@@ -1,10 +1,9 @@
 package at.lzito.workflowmanager.workflow.presentation;
 
-import at.lzito.workflowmanager.workflow.application.SaveWorkflowsUseCase;
+import at.lzito.workflowmanager.workflow.application.WorkflowAppService;
 import at.lzito.workflowmanager.workflow.domain.AppEntry;
 import at.lzito.workflowmanager.workflow.domain.Hotkey;
 import at.lzito.workflowmanager.workflow.domain.Workflow;
-import at.lzito.workflowmanager.workflow.domain.WorkflowRepository;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -33,9 +32,8 @@ import java.util.List;
  */
 public class ConfigEditorDialog extends JDialog {
 
-    private final SaveWorkflowsUseCase saveUseCase;
-    private final WorkflowRepository   repository;
-    private final Runnable             onSaved;
+    private final WorkflowAppService appService;
+    private final Runnable           onSaved;
 
     // ── Internal mutable model ────────────────────────────────────────────────
 
@@ -70,12 +68,10 @@ public class ConfigEditorDialog extends JDialog {
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    public ConfigEditorDialog(JFrame parent, SaveWorkflowsUseCase saveUseCase,
-                              WorkflowRepository repository, Runnable onSaved) {
+    public ConfigEditorDialog(JFrame parent, WorkflowAppService appService, Runnable onSaved) {
         super(parent, "Edit Config", true);
-        this.saveUseCase = saveUseCase;
-        this.repository  = repository;
-        this.onSaved     = onSaved;
+        this.appService = appService;
+        this.onSaved    = onSaved;
 
         loadModel();
         buildUI();
@@ -88,7 +84,7 @@ public class ConfigEditorDialog extends JDialog {
 
     private void loadModel() {
         model.clear();
-        for (Workflow w : repository.findAll()) {
+        for (Workflow w : appService.getAll()) {
             model.add(WfEntry.from(w));
         }
     }
@@ -352,7 +348,7 @@ public class ConfigEditorDialog extends JDialog {
                 .map(WfEntry::toWorkflow)
                 .toList();
         try {
-            saveUseCase.execute(workflows);
+            appService.save(workflows);
             dispose();
             onSaved.run();
         } catch (IOException ex) {
@@ -367,7 +363,7 @@ public class ConfigEditorDialog extends JDialog {
                 "Clear Config", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (confirm != JOptionPane.YES_OPTION) return;
         try {
-            repository.reset();
+            appService.resetConfig();
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this, "Reset failed: " + ex.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);

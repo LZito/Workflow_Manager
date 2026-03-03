@@ -6,8 +6,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Application-layer interface for global hotkey registration.
- * Implementations live in the infrastructure layer.
+ * Registers global hotkeys and binds them to workflow activation callbacks.
  */
 public interface HotkeyRegistry {
 

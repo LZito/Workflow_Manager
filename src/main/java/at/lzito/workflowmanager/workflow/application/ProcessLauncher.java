@@ -3,8 +3,7 @@ package at.lzito.workflowmanager.workflow.application;
 import at.lzito.workflowmanager.workflow.domain.AppEntry;
 
 /**
- * Application-layer interface for launching and terminating OS processes.
- * Implementations live in the infrastructure layer.
+ * Launches and terminates OS processes on behalf of the application service.
  */
 public interface ProcessLauncher {
 

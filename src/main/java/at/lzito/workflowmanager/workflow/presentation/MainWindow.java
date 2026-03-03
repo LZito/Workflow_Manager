@@ -1,10 +1,7 @@
 package at.lzito.workflowmanager.workflow.presentation;
 
-import at.lzito.workflowmanager.workflow.application.ActivateWorkflowUseCase;
-import at.lzito.workflowmanager.workflow.application.ReloadWorkflowsUseCase;
-import at.lzito.workflowmanager.workflow.application.SaveWorkflowsUseCase;
+import at.lzito.workflowmanager.workflow.application.WorkflowAppService;
 import at.lzito.workflowmanager.workflow.domain.Workflow;
-import at.lzito.workflowmanager.workflow.domain.WorkflowRepository;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -38,11 +35,8 @@ public class MainWindow extends JFrame {
 
     // ── Dependencies ──────────────────────────────────────────────────────────
 
-    private final ActivateWorkflowUseCase activateUseCase;
-    private final ReloadWorkflowsUseCase  reloadUseCase;
-    private final SaveWorkflowsUseCase    saveUseCase;
-    private final WorkflowRepository      repository;
-    private final boolean                 firstRun;
+    private final WorkflowAppService appService;
+    private final boolean            firstRun;
 
     // ── UI state ──────────────────────────────────────────────────────────────
 
@@ -52,16 +46,9 @@ public class MainWindow extends JFrame {
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    public MainWindow(ActivateWorkflowUseCase activateUseCase,
-                      ReloadWorkflowsUseCase  reloadUseCase,
-                      SaveWorkflowsUseCase    saveUseCase,
-                      WorkflowRepository      repository,
-                      boolean                 firstRun) {
-        this.activateUseCase = activateUseCase;
-        this.reloadUseCase   = reloadUseCase;
-        this.saveUseCase     = saveUseCase;
-        this.repository      = repository;
-        this.firstRun        = firstRun;
+    public MainWindow(WorkflowAppService appService, boolean firstRun) {
+        this.appService = appService;
+        this.firstRun   = firstRun;
         initialize();
     }
 
@@ -75,8 +62,24 @@ public class MainWindow extends JFrame {
     }
 
     public void openConfigEditor() {
-        ConfigEditorDialog dlg = new ConfigEditorDialog(this, saveUseCase, repository, this::reload);
+        ConfigEditorDialog dlg = new ConfigEditorDialog(this, appService, this::reload);
         dlg.setVisible(true);
+    }
+
+    /**
+     * Shows an update-available prompt. If the user accepts, {@code doUpdate} is run on a
+     * background thread.
+     */
+    public void promptUpdate(String version, Runnable doUpdate) {
+        int choice = JOptionPane.showConfirmDialog(
+                this,
+                "Version " + version + " is available.\nDownload and restart automatically?",
+                "Update Available",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.INFORMATION_MESSAGE);
+        if (choice != JOptionPane.YES_OPTION) return;
+        setStatus("Downloading v" + version + "…", COLOR_INFO);
+        new Thread(doUpdate, "updater-thread").start();
     }
 
     // ── Initialisation ────────────────────────────────────────────────────────
@@ -198,7 +201,7 @@ public class MainWindow extends JFrame {
     void reload() {
         new Thread(() -> {
             try {
-                List<Workflow> workflows = reloadUseCase.execute(this::onHotkeyActivated);
+                List<Workflow> workflows = appService.reload(this::onHotkeyActivated);
                 SwingUtilities.invokeLater(() -> {
                     buildWorkflowButtons(workflows);
                     setStatus("Loaded " + workflows.size()
@@ -214,14 +217,14 @@ public class MainWindow extends JFrame {
     private void activate(Workflow workflow) {
         setStatus("Activating " + workflow.displayName() + "…", COLOR_INFO);
         new Thread(() -> {
-            activateUseCase.execute(workflow);
+            appService.activate(workflow);
             setStatus("Activated: " + workflow.displayName(), COLOR_SUCCESS);
         }, "activate-thread").start();
     }
 
     private void onHotkeyActivated(Workflow workflow) {
         new Thread(() -> {
-            activateUseCase.execute(workflow);
+            appService.activate(workflow);
             setStatus("Activated: " + workflow.displayName(), COLOR_SUCCESS);
             if (trayIcon != null) {
                 trayIcon.displayMessage(
@@ -292,7 +295,6 @@ public class MainWindow extends JFrame {
 
         private Dimension compute(Container target, boolean preferred) {
             synchronized (target.getTreeLock()) {
-                // Walk up to find a real width when not yet laid out
                 int targetWidth = target.getSize().width;
                 Container probe = target;
                 while (targetWidth == 0 && probe.getParent() != null) {

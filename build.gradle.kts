@@ -5,7 +5,11 @@ plugins {
 }
 
 group = "at.lzito.workflowmanager"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
+
+// Build outputs go to the Linux filesystem to avoid WSL/NTFS chmod failures.
+// The final JAR is copied back to the project's build/libs/ for convenience.
+layout.buildDirectory.set(file("/tmp/wm-build"))
 
 java {
     toolchain {
@@ -40,11 +44,16 @@ tasks.test {
     useJUnitPlatform()
 }
 
-// Fat JAR: bundle all dependencies into one runnable jar
+// Fat JAR: fixed filename so the self-updater always knows what to replace.
+// Version is embedded in the manifest (Implementation-Version) so no resource
+// filtering is needed — avoids NTFS chmod failures on WSL.
 tasks.shadowJar {
     archiveBaseName = "workflow-manager"
     archiveClassifier = ""
-    archiveVersion = version.toString()
+    archiveVersion = ""          // produces workflow-manager.jar (no version suffix)
+    manifest {
+        attributes["Implementation-Version"] = project.version
+    }
     mergeServiceFiles()
 }
 
