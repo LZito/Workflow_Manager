@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# Pre-push hook: runs unit tests before allowing push.
+# To skip (emergency only): git push --no-verify
+
+echo "Running unit tests before push..."
+echo ""
+
+gradle test --no-daemon
+
+RESULT=$?
+
+if [ $RESULT -ne 0 ]; then
+    echo ""
+    echo "Tests failed. Push aborted."
+    echo "Fix the failing tests or use 'git push --no-verify' to skip (not recommended)."
+    exit 1
+fi
+
+echo ""
+echo "All tests passed. Proceeding with push..."
+exit 0

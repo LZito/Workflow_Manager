@@ -66,11 +66,44 @@ dependencies {
 
     // Test
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testImplementation("org.mockito:mockito-core:5.15.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.test {
     useJUnitPlatform()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// installGitHooks — point Git at the checked-in .githooks/ directory.
+// Run once after cloning: gradle installGitHooks
+// ─────────────────────────────────────────────────────────────────────────────
+tasks.register("installGitHooks") {
+    group       = "setup"
+    description = "Configure Git to use the project's .githooks/ directory (run once after cloning)."
+
+    doLast {
+        val exit = ProcessBuilder("git", "config", "core.hooksPath", ".githooks")
+            .inheritIO()
+            .start()
+            .waitFor()
+
+        if (exit != 0) {
+            // Fallback for WSL/NTFS: git config can't acquire a lock on the .git/ directory.
+            // Write the setting directly into .git/config instead.
+            val gitConfig = file(".git/config")
+            val text = gitConfig.readText()
+            if (!text.contains("hooksPath")) {
+                gitConfig.writeText(text.replace(
+                    Regex("""(\[core\][^\[]*)"""),
+                    "$1\thooksPath = .githooks\n"
+                ))
+            }
+        }
+
+        println("Git hooks installed. Pre-push hook will now run 'gradle test' before every push.")
+        println("(includes pushes made by 'gradle release')")
+    }
 }
 
 // Fat JAR: fixed filename so the self-updater always knows what to replace.
