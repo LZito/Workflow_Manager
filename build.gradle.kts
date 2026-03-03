@@ -126,8 +126,12 @@ tasks.register("release") {
 
         // ── Commit, tag, push ─────────────────────────────────────────────────
 
-        run("git", "add", "gradle.properties")
-        run("git", "commit", "-m", "chore: release $tag")
+        // Only commit if gradle.properties actually changed (i.e. version was bumped)
+        val propsChanged = !capture("git", "diff", "--name-only", "gradle.properties").isNullOrBlank()
+        if (propsChanged) {
+            run("git", "add", "gradle.properties")
+            run("git", "commit", "-m", "chore: release $tag")
+        }
         run("git", "tag", "-a", tag, "-m", "Release $tag")
         run("git", "push")
         run("git", "push", "origin", tag)
