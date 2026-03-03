@@ -53,13 +53,14 @@ jobs:
         run: |
           Compress-Archive `
             -Path dist\WorkflowManager `
-            -DestinationPath "WorkflowManager-${{ steps.ver.outputs.value }}-windows.zip"
+            -DestinationPath "WorkflowManager-windows.zip"
 
-      # Attach the ZIP to the existing GitHub release
+      # Attach the ZIP to the existing GitHub release.
+      # Fixed filename enables a permanent latest-download URL:
+      # https://github.com/LZito/Workflow_Manager/releases/latest/download/WorkflowManager-windows.zip
       - name: Upload to release
         shell: pwsh
         run: |
-          gh release upload "${{ github.ref_name }}" `
-            "WorkflowManager-${{ steps.ver.outputs.value }}-windows.zip"
+          gh release upload "${{ github.ref_name }}" "WorkflowManager-windows.zip"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
