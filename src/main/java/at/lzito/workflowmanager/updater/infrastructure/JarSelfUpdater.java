@@ -61,12 +61,21 @@ public class JarSelfUpdater {
 
     private static void launchWindowsUpdater(Path target, Path update) throws IOException {
         Path script = target.resolveSibling("wm-update.bat");
+
+        // In a jpackage app-image the JAR lives inside an app/ subfolder and the
+        // native launcher sits one directory above it.  Prefer that launcher so the
+        // bundled JRE is used instead of whatever javaw might be on PATH.
+        Path nativeLauncher = target.getParent().getParent().resolve("WorkflowManager.exe");
+        String relaunch = Files.exists(nativeLauncher)
+                ? "start \"\" \"" + nativeLauncher.toAbsolutePath() + "\""
+                : "start javaw -jar \"" + target.toAbsolutePath() + "\"";
+
         // timeout /t 3 waits 3 s without requiring network (unlike ping)
         String bat =
             "@echo off\r\n" +
             "timeout /t 3 /nobreak > nul\r\n" +
             "move /y \"" + update.toAbsolutePath() + "\" \"" + target.toAbsolutePath() + "\"\r\n" +
-            "start javaw -jar \"" + target.toAbsolutePath() + "\"\r\n" +
+            relaunch + "\r\n" +
             "del \"%~f0\"\r\n";
         Files.writeString(script, bat);
         new ProcessBuilder("cmd.exe", "/c", "start", "/min", script.toString()).start();

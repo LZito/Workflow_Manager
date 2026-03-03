@@ -9,8 +9,11 @@ plugins {
 group   = "at.lzito.workflowmanager"
 version = findProperty("projectVersion") as String? ?: "0.0.0"
 
-// Build outputs go to the Linux filesystem to avoid WSL/NTFS chmod failures.
-layout.buildDirectory.set(file("/tmp/wm-build"))
+// On Linux/WSL, redirect build output to the Linux filesystem to avoid NTFS chmod failures.
+// On native Windows (GitHub Actions CI) the default build/ directory is used.
+if (System.getProperty("os.name", "").lowercase().contains("linux")) {
+    layout.buildDirectory.set(file("/tmp/wm-build"))
+}
 
 java {
     toolchain {
