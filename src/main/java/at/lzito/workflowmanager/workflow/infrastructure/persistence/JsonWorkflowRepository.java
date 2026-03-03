@@ -23,9 +23,6 @@ import java.util.stream.Collectors;
  */
 public class JsonWorkflowRepository implements WorkflowRepository {
 
-    private static final Path CONFIG_DIR  = Path.of(System.getProperty("user.home"), ".workflow-manager");
-    private static final Path CONFIG_FILE = CONFIG_DIR.resolve("workflows.json");
-
     private static final String DEFAULT_CONFIG = """
             {
               "workflows": [
@@ -43,13 +40,25 @@ public class JsonWorkflowRepository implements WorkflowRepository {
             }
             """;
 
+    private final Path             configFile;
+    private final Path             configDir;
     private final ObjectMapper     mapper;
     private final Consumer<String> logger;
     private List<Workflow>         cache = Collections.emptyList();
 
     public JsonWorkflowRepository(Consumer<String> logger) {
-        this.mapper = new ObjectMapper();
-        this.logger = logger;
+        this.configDir  = Path.of(System.getProperty("user.home"), ".workflow-manager");
+        this.configFile = configDir.resolve("workflows.json");
+        this.mapper     = new ObjectMapper();
+        this.logger     = logger;
+    }
+
+    /** Test-only constructor — takes an explicit config file path instead of ~/.workflow-manager/. */
+    JsonWorkflowRepository(Path configFile, Consumer<String> logger) {
+        this.configFile = configFile;
+        this.configDir  = configFile.getParent();
+        this.mapper     = new ObjectMapper();
+        this.logger     = logger;
     }
 
     // ── WorkflowRepository ────────────────────────────────────────────────────
@@ -62,7 +71,7 @@ public class JsonWorkflowRepository implements WorkflowRepository {
     @Override
     public void reload() throws IOException {
         ensureConfigExists();
-        ConfigDto dto = mapper.readValue(CONFIG_FILE.toFile(), ConfigDto.class);
+        ConfigDto dto = mapper.readValue(configFile.toFile(), ConfigDto.class);
         cache = dto.workflows == null
                 ? Collections.emptyList()
                 : dto.workflows.stream()
@@ -72,33 +81,33 @@ public class JsonWorkflowRepository implements WorkflowRepository {
 
     @Override
     public void save(List<Workflow> workflows) throws IOException {
-        Files.createDirectories(CONFIG_DIR);
+        Files.createDirectories(configDir);
         ConfigDto dto = new ConfigDto();
         dto.workflows = workflows.stream().map(this::toDto).collect(Collectors.toList());
-        mapper.writerWithDefaultPrettyPrinter().writeValue(CONFIG_FILE.toFile(), dto);
+        mapper.writerWithDefaultPrettyPrinter().writeValue(configFile.toFile(), dto);
         cache = Collections.unmodifiableList(new ArrayList<>(workflows));
-        logger.accept("Config saved: " + workflows.size() + " workflow(s) → " + CONFIG_FILE);
+        logger.accept("Config saved: " + workflows.size() + " workflow(s) → " + configFile);
     }
 
     @Override
     public void reset() throws IOException {
-        Files.deleteIfExists(CONFIG_FILE);
+        Files.deleteIfExists(configFile);
         cache = Collections.emptyList();
         logger.accept("Config reset.");
     }
 
     @Override
     public Path configPath() {
-        return CONFIG_FILE;
+        return configFile;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void ensureConfigExists() throws IOException {
-        if (!Files.exists(CONFIG_FILE)) {
-            Files.createDirectories(CONFIG_DIR);
-            Files.writeString(CONFIG_FILE, DEFAULT_CONFIG);
-            logger.accept("Created default config at: " + CONFIG_FILE);
+        if (!Files.exists(configFile)) {
+            Files.createDirectories(configDir);
+            Files.writeString(configFile, DEFAULT_CONFIG);
+            logger.accept("Created default config at: " + configFile);
         }
     }
 
